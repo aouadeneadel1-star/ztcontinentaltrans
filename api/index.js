@@ -142,97 +142,102 @@ app.post("/api/quote/send", async (req, res) => {
       } catch {}
     }
 
-    // --- Generate PDF (with fallback) ---
+    // --- Generate PDF ---
     let pdfBuffer = null;
     try {
       const pdfDoc = await PDFDocument.create();
-      const helv = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const helvB = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+      const h = await pdfDoc.embedFont(StandardFonts.Helvetica);
+      const hb = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
       const page = pdfDoc.addPage([595, 842]);
-      const { width } = page.getSize();
-      const ml = 40;
-      let y = 780;
-      const gray = rgb(0.4, 0.41, 0.42);
-      const dark = rgb(0.06, 0.09, 0.16);
-      const border = rgb(0.89, 0.91, 0.94);
-      const rowEven = rgb(0.97, 0.98, 0.99);
+      const pw = page.getWidth();
+      const ml = 45, mr = 45, cw = pw - ml - mr;
+      const primary = rgb(0.06, 0.09, 0.16);
+      const muted = rgb(0.39, 0.41, 0.45);
+      const light = rgb(0.89, 0.91, 0.94);
+      const bgHeader = rgb(0.06, 0.09, 0.16);
+      const bgRow = rgb(0.96, 0.97, 0.98);
+      const bgTotal = rgb(0.94, 0.95, 0.97);
+      let y = 800;
 
-      let logoDims = null;
+      // --- Dark header bar ---
+      page.drawRectangle({ x: 0, y: y - 10, width: pw, height: 56, color: bgHeader });
+
       if (logoPng) {
         try {
           const img = await pdfDoc.embedPng(logoPng);
-          const scale = 40 / img.width;
-          logoDims = { width: img.width * scale, height: img.height * scale };
-          page.drawImage(img, { x: ml, y: y - logoDims.height, width: logoDims.width, height: logoDims.height });
+          const s = 34 / img.width;
+          page.drawImage(img, { x: ml + 4, y: y - 4, width: img.width * s, height: img.height * s });
         } catch {}
       }
 
-      const lx = logoDims ? ml + (logoDims?.width || 0) + 12 : ml;
-      page.drawText("ZT Continental Trans", { x: lx, y: y - 6, size: 18, font: helvB, color: dark });
-      page.drawText("Transport et logistique", { x: lx, y: y - 20, size: 8, font: helv, color: gray });
+      page.drawText("ZT Continental Trans", { x: 98, y: y + 10, size: 14, font: hb, color: rgb(1, 1, 1) });
+      page.drawText("Transport et logistique", { x: 98, y: y - 4, size: 8, font: h, color: rgb(0.58, 0.6, 0.62) });
+      page.drawText("DEVIS", { x: pw - mr, y: y + 8, size: 24, font: hb, color: rgb(1, 1, 1), textAlign: "right" });
+      page.drawText(`N\u00B0 ${code}`, { x: pw - mr, y: y - 8, size: 8, font: h, color: rgb(0.58, 0.6, 0.62), textAlign: "right" });
 
-      page.drawText(`DEVIS N\u00B0 ${code}`, { x: width - ml, y: y - 6, size: 22, font: helvB, color: dark, textAlign: "right" });
+      y -= 54;
 
-      y -= 36;
-      page.drawLine({ start: { x: ml, y }, end: { x: width - ml, y }, thickness: 0.5, color: border });
+      // --- Infos row ---
+      y -= 20;
+      page.drawText("DATE", { x: ml, y, size: 7, font: h, color: muted });
+      page.drawText("VALIDIT\u00C9", { x: 190, y, size: 7, font: h, color: muted });
+      page.drawText("SERVICE", { x: 330, y, size: 7, font: h, color: muted });
 
       const today = new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-
-      y -= 16;
-      page.drawText("DATE", { x: ml, y, size: 8, font: helv, color: gray });
-      page.drawText("VALIDIT\u00C9", { x: 200, y, size: 8, font: helv, color: gray });
-      page.drawText("SERVICE", { x: 360, y, size: 8, font: helv, color: gray });
-
       y -= 14;
-      page.drawText(today, { x: ml, y, size: 10, font: helvB, color: dark });
-      page.drawText("30 jours", { x: 200, y, size: 10, font: helvB, color: dark });
-      page.drawText(serviceLabel, { x: 360, y, size: 10, font: helvB, color: dark });
+      page.drawText(today, { x: ml, y, size: 10, font: hb, color: primary });
+      page.drawText("30 jours", { x: 190, y, size: 10, font: hb, color: primary });
+      page.drawText(serviceLabel, { x: 330, y, size: 10, font: hb, color: primary });
 
-      y -= 22;
-      page.drawLine({ start: { x: ml, y }, end: { x: width - ml, y }, thickness: 0.5, color: border });
+      // --- Route card ---
+      y -= 28;
+      page.drawRectangle({ x: ml, y: y - 12, width: cw, height: 50, color: bgRow, borderColor: light, borderWidth: 0.5 });
 
+      const routeX = ml + 14;
+      y -= 4;
+      page.drawText("TRAJET", { x: routeX, y: y - 2, size: 7, font: h, color: muted });
+      y -= 18;
+      page.drawText(`${departureCity}  \u2192  ${arrivalCity}`, { x: routeX, y, size: 15, font: hb, color: primary });
       y -= 16;
-      page.drawText("TRAJET", { x: ml, y, size: 8, font: helv, color: gray });
+      page.drawText(`${distance} km`, { x: routeX, y, size: 9, font: h, color: muted });
+
+      y -= 36;
+
+      // --- Table header ---
+      page.drawText("D\u00C9TAIL DES PRIX", { x: ml, y, size: 9, font: hb, color: primary });
       y -= 12;
-      page.drawText(`${departureCity}  >  ${arrivalCity}`, { x: ml, y, size: 12, font: helvB, color: dark });
-      y -= 12;
-      page.drawText(`${distance} km`, { x: ml, y, size: 8, font: helv, color: gray });
-
-      y -= 22;
-      page.drawLine({ start: { x: ml, y }, end: { x: width - ml, y }, thickness: 0.5, color: border });
-
-      y -= 16;
-      page.drawText("D\u00C9TAIL DES PRIX", { x: ml, y, size: 8, font: helvB, color: gray });
-
-      y -= 10;
-      page.drawRectangle({ x: ml, y: y - 4, width: width - 80, height: 14, color: rgb(0.945, 0.961, 0.976) });
-      page.drawText("LIBELL\u00C9", { x: ml + 6, y: y - 1, size: 8, font: helvB, color: dark });
-      page.drawText("MONTANT", { x: width - ml - 6, y: y - 1, size: 8, font: helvB, color: dark, textAlign: "right" });
+      page.drawRectangle({ x: ml, y: y - 4, width: cw, height: 16, color: bgHeader });
+      page.drawText("LIBELL\u00C9", { x: ml + 10, y: y + 4, size: 8, font: hb, color: rgb(1, 1, 1) });
+      page.drawText("MONTANT", { x: pw - mr - 10, y: y + 4, size: 8, font: hb, color: rgb(1, 1, 1), textAlign: "right" });
       y -= 16;
 
-      const items = [
-        ["Transport", `${fmt(Math.round(tc))} \u20AC`],
-        ["Carburant", `${fmt(Math.round(st))} \u20AC`],
+      // --- Table rows ---
+      const rows = [
+        ["Transport de base", `${fmt(Math.round(tc))} \u20AC`],
+        ["Carburant (14.5%)", `${fmt(Math.round(st))} \u20AC`],
         ["P\u00E9age", `${fmt(Math.round(pe))} \u20AC`],
         ["TVA (20%)", `${fmt(Math.round(tva))} \u20AC`],
       ];
 
-      items.forEach(([label, val], i) => {
-        if (i % 2 === 0) page.drawRectangle({ x: ml, y: y - 2, width: width - 80, height: 14, color: rowEven });
-        page.drawText(label, { x: ml + 6, y: y + 1, size: 8, font: helv, color: dark });
-        page.drawText(val, { x: width - ml - 6, y: y + 1, size: 8, font: helv, color: dark, textAlign: "right" });
-        y -= 14;
+      rows.forEach(([label, val], i) => {
+        if (i % 2 === 0) page.drawRectangle({ x: ml, y: y - 2, width: cw, height: 16, color: bgRow });
+        page.drawText(label, { x: ml + 10, y: y + 3, size: 9, font: h, color: primary });
+        page.drawText(val, { x: pw - mr - 10, y: y + 3, size: 9, font: h, color: primary, textAlign: "right" });
+        y -= 16;
       });
 
-      page.drawRectangle({ x: ml, y: y - 4, width: width - 80, height: 18, color: rgb(0.945, 0.961, 0.976) });
-      page.drawText("TOTAL TTC", { x: ml + 6, y: y + 2, size: 10, font: helvB, color: dark });
-      page.drawText(`${fmt(Math.round(total))} \u20AC`, { x: width - ml - 6, y: y + 2, size: 10, font: helvB, color: dark, textAlign: "right" });
+      // --- Total ---
+      y -= 2;
+      page.drawRectangle({ x: ml, y: y - 4, width: cw, height: 22, color: bgTotal, borderColor: light, borderWidth: 0.5 });
+      page.drawText("TOTAL TTC", { x: ml + 10, y: y + 5, size: 12, font: hb, color: primary });
+      page.drawText(`${fmt(Math.round(total))} \u20AC`, { x: pw - mr - 10, y: y + 5, size: 14, font: hb, color: primary, textAlign: "right" });
 
-      const fy = 60;
-      page.drawLine({ start: { x: ml, y: fy }, end: { x: width - ml, y: fy }, thickness: 0.5, color: border });
-      page.drawText("ZT Continental Trans - 1 Place de la Boulaie, 94470 Boissy-Saint-L\u00E9ger", { x: ml, y: fy - 10, size: 6, font: helv, color: gray });
-      page.drawText("+33 6 13 54 35 09 | contact@ztcontinentaltrans.com", { x: ml, y: fy - 18, size: 6, font: helv, color: gray });
-      page.drawText("SIRET 881 077 796 00020 | TVA FR84881077796 | RCS 881 077 796 R.C.S. Creteil | Capital 10 000,00 \u20AC", { x: ml, y: fy - 26, size: 6, font: helv, color: gray });
+      // --- Footer ---
+      const fy = 65;
+      page.drawLine({ start: { x: ml, y: fy + 6 }, end: { x: pw - mr, y: fy + 6 }, thickness: 0.5, color: light });
+      page.drawText("ZT Continental Trans - 1 Place de la Boulaie, 94470 Boissy-Saint-L\u00E9ger", { x: ml, y: fy - 4, size: 7, font: h, color: muted });
+      page.drawText("+33 6 13 54 35 09 | contact@ztcontinentaltrans.com", { x: ml, y: fy - 13, size: 7, font: h, color: muted });
+      page.drawText("SIRET 881 077 796 00020 | TVA FR84881077796 | RCS 881 077 796 R.C.S. Creteil", { x: ml, y: fy - 22, size: 7, font: h, color: muted });
 
       pdfBuffer = Buffer.from(await pdfDoc.save());
     } catch (pdfErr) {
