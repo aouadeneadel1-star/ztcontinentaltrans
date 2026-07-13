@@ -278,6 +278,36 @@ app.post("/api/quote/send", async (req, res) => {
       } : {}),
     });
 
+    // --- Notify owner ---
+    try {
+      await transporter.sendMail({
+        from: `"ZT Continental Trans" <${process.env.SMTP_USER}>`,
+        to: process.env.CONTACT_EMAIL || "contact@ztcontinentaltrans.com",
+        subject: `Nouveau devis n\u00B0${code} - ${departureCity} \u2192 ${arrivalCity}`,
+        html: `
+          <div style="max-width:600px;font-family:system-ui,sans-serif;color:#0f172a;">
+            <div style="background:#0f172a;padding:16px 24px;border-radius:8px 8px 0 0;">
+              <span style="color:#fff;font-size:18px;font-weight:700;">Nouveau devis</span>
+            </div>
+            <div style="border:1px solid #e2e8f0;padding:24px;">
+              <p><strong>Devis n\u00B0${code}</strong></p>
+              <p>${departureCity} \u2192 ${arrivalCity} (${distance} km)</p>
+              <p>Service : ${serviceLabel}</p>
+              <p style="font-size:24px;font-weight:700;color:#2563eb;">${fmt(Math.round(total))} \u20AC</p>
+              <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;">
+              <p style="color:#64748b;font-size:13px;">
+                Client : ${name || "non renseign\u00E9"}<br>
+                Email : ${email}<br>
+                T\u00E9l : ${phone || "non renseign\u00E9"}
+              </p>
+            </div>
+          </div>
+        `,
+      });
+    } catch (notifErr) {
+      console.error("[Quote Notif] Error:", notifErr?.message || notifErr);
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error("[Quote Send] Error:", error?.message || error);
