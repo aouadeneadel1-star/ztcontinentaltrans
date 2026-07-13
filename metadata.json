@@ -1,0 +1,6 @@
+{
+  "name": "ZT Continental Trans",
+  "description": "Site web premium et interactif pour l'entreprise internationale de transport et logistique ZT Continental Trans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
