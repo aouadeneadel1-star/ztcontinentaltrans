@@ -116,28 +116,10 @@ app.post("/api/quote/send", async (req, res) => {
     const fmt = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
     // --- Load logo ---
-    let logoWebp = null, logoPng = null;
+    let logoData = null;
     try {
-      if (!logoPng) {
-        const paths = ["dist/logo.png", "public/logo.png", "logo.png"];
-        for (const p of paths) try { logoPng = fs.readFileSync(path.join(__dirname, "..", p)); break; } catch {}
-      }
-      if (!logoWebp) {
-        const paths = ["dist/logo.webp", "public/logo.webp", "logo.webp"];
-        for (const p of paths) try { logoWebp = fs.readFileSync(path.join(__dirname, "..", p)); break; } catch {}
-      }
-      // Fallback HTTP
-      const base = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : `https://${req.headers.host || "www.ztcontinentaltrans.com"}`;
-      if (!logoPng) {
-        const r = await fetch(`${base}/logo.png`).catch(() => null);
-        if (r?.ok) logoPng = Buffer.from(await r.arrayBuffer());
-      }
-      if (!logoWebp) {
-        const r = await fetch(`${base}/logo.webp`).catch(() => null);
-        if (r?.ok) logoWebp = Buffer.from(await r.arrayBuffer());
-      }
+      const r = await fetch("https://app.ztcontinentaltrans.com/logo.jpeg").catch(() => null);
+      if (r?.ok) logoData = Buffer.from(await r.arrayBuffer());
     } catch {}
 
     // --- Generate PDF ---
@@ -160,9 +142,9 @@ app.post("/api/quote/send", async (req, res) => {
       // --- Dark header bar ---
       page.drawRectangle({ x: 0, y: y - 10, width: pw, height: 56, color: bgHeader });
 
-      if (logoPng) {
+      if (logoData) {
         try {
-          const img = await pdfDoc.embedPng(logoPng);
+          const img = await pdfDoc.embedJpg(logoData);
           const s = 34 / img.width;
           page.drawImage(img, { x: ml + 4, y: y - 4, width: img.width * s, height: img.height * s });
         } catch {}
@@ -254,7 +236,7 @@ app.post("/api/quote/send", async (req, res) => {
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
 
-    const logoBase64 = logoWebp ? logoWebp.toString("base64") : null;
+    const logoBase64 = logoData ? logoData.toString("base64") : null;
 
     await transporter.sendMail({
       from: `"ZT Continental Trans" <${process.env.SMTP_USER}>`,
@@ -263,7 +245,7 @@ app.post("/api/quote/send", async (req, res) => {
       html: `
         <div style="max-width:600px;margin:0 auto;font-family:system-ui,sans-serif;color:#0f172a;">
           <div style="background:#0f172a;padding:20px 32px;border-radius:12px 12px 0 0;">
-            ${logoBase64 ? `<img src="data:image/webp;base64,${logoBase64}" width="40" height="40" style="border-radius:8px;margin-right:12px;vertical-align:middle" />` : ""}
+            ${logoBase64 ? `<img src="data:image/jpeg;base64,${logoBase64}" width="40" height="40" style="border-radius:8px;margin-right:12px;vertical-align:middle" />` : ""}
             <span style="color:#fff;font-size:20px;font-weight:700;vertical-align:middle;">ZT Continental Trans</span>
             <p style="color:#94a3b8;font-size:13px;margin:4px 0 0;">Transport et logistique</p>
           </div>
