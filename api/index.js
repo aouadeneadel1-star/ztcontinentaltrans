@@ -116,13 +116,30 @@ app.post("/api/quote/send", async (req, res) => {
     const fmt = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
     // --- Try to load logo ---
-    let logoBuffer = null;
-    const logoPaths = [
+    let logoWebp = null, logoPng = null;
+    const tryRead = (paths) => { for (const p of paths) try { return fs.readFileSync(p); } catch {} return null; };
+    logoWebp = tryRead([
       path.join(__dirname, "..", "dist", "logo.webp"),
       path.join(__dirname, "..", "public", "logo.webp"),
-    ];
-    for (const p of logoPaths) {
-      try { logoBuffer = fs.readFileSync(p); break; } catch {}
+    ]);
+    logoPng = tryRead([
+      path.join(__dirname, "..", "dist", "logo.png"),
+      path.join(__dirname, "..", "public", "logo.png"),
+    ]);
+    // Fallback: fetch via HTTP
+    if (!logoWebp || !logoPng) {
+      try {
+        const host = req.headers.host || "www.ztcontinentaltrans.com";
+        const proto = req.headers["x-forwarded-proto"] || "https";
+        if (!logoWebp) {
+          const r = await fetch(`${proto}://${host}/logo.webp`);
+          if (r.ok) logoWebp = Buffer.from(await r.arrayBuffer());
+        }
+        if (!logoPng) {
+          const r = await fetch(`${proto}://${host}/logo.png`);
+          if (r.ok) logoPng = Buffer.from(await r.arrayBuffer());
+        }
+      } catch {}
     }
 
     // --- Generate PDF (with fallback) ---
@@ -141,10 +158,11 @@ app.post("/api/quote/send", async (req, res) => {
       const rowEven = rgb(0.97, 0.98, 0.99);
 
       let logoDims = null;
-      if (logoBuffer) {
+      if (logoPng) {
         try {
-          const img = await pdfDoc.embedPng(logoBuffer).catch(() => pdfDoc.embedJpg(logoBuffer));
-          logoDims = img.scale(0.2);
+          const img = await pdfDoc.embedPng(logoPng);
+          const scale = 40 / img.width;
+          logoDims = { width: img.width * scale, height: img.height * scale };
           page.drawImage(img, { x: ml, y: y - logoDims.height, width: logoDims.width, height: logoDims.height });
         } catch {}
       }
@@ -233,7 +251,7 @@ app.post("/api/quote/send", async (req, res) => {
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
 
-    const logoBase64 = logoBuffer ? logoBuffer.toString("base64") : null;
+    const logoBase64 = logoWebp ? logoWebp.toString("base64") : null;
 
     await transporter.sendMail({
       from: `"ZT Continental Trans" <${process.env.SMTP_USER}>`,
