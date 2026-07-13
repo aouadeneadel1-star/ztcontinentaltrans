@@ -115,32 +115,30 @@ app.post("/api/quote/send", async (req, res) => {
 
     const fmt = (n) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
-    // --- Try to load logo ---
+    // --- Load logo ---
     let logoWebp = null, logoPng = null;
-    const tryRead = (paths) => { for (const p of paths) try { return fs.readFileSync(p); } catch {} return null; };
-    logoWebp = tryRead([
-      path.join(__dirname, "..", "dist", "logo.webp"),
-      path.join(__dirname, "..", "public", "logo.webp"),
-    ]);
-    logoPng = tryRead([
-      path.join(__dirname, "..", "dist", "logo.png"),
-      path.join(__dirname, "..", "public", "logo.png"),
-    ]);
-    // Fallback: fetch via HTTP
-    if (!logoWebp || !logoPng) {
-      try {
-        const host = req.headers.host || "www.ztcontinentaltrans.com";
-        const proto = req.headers["x-forwarded-proto"] || "https";
-        if (!logoWebp) {
-          const r = await fetch(`${proto}://${host}/logo.webp`);
-          if (r.ok) logoWebp = Buffer.from(await r.arrayBuffer());
-        }
-        if (!logoPng) {
-          const r = await fetch(`${proto}://${host}/logo.png`);
-          if (r.ok) logoPng = Buffer.from(await r.arrayBuffer());
-        }
-      } catch {}
-    }
+    try {
+      if (!logoPng) {
+        const paths = ["dist/logo.png", "public/logo.png", "logo.png"];
+        for (const p of paths) try { logoPng = fs.readFileSync(path.join(__dirname, "..", p)); break; } catch {}
+      }
+      if (!logoWebp) {
+        const paths = ["dist/logo.webp", "public/logo.webp", "logo.webp"];
+        for (const p of paths) try { logoWebp = fs.readFileSync(path.join(__dirname, "..", p)); break; } catch {}
+      }
+      // Fallback HTTP
+      const base = process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : `https://${req.headers.host || "www.ztcontinentaltrans.com"}`;
+      if (!logoPng) {
+        const r = await fetch(`${base}/logo.png`).catch(() => null);
+        if (r?.ok) logoPng = Buffer.from(await r.arrayBuffer());
+      }
+      if (!logoWebp) {
+        const r = await fetch(`${base}/logo.webp`).catch(() => null);
+        if (r?.ok) logoWebp = Buffer.from(await r.arrayBuffer());
+      }
+    } catch {}
 
     // --- Generate PDF ---
     let pdfBuffer = null;
@@ -191,7 +189,7 @@ app.post("/api/quote/send", async (req, res) => {
 
       // --- Route card ---
       y -= 28;
-      page.drawRectangle({ x: ml, y: y - 12, width: cw, height: 50, color: bgRow, borderColor: light, borderWidth: 0.5 });
+      page.drawRectangle({ x: ml, y: y - 12, width: cw, height: 50, color: bgRow });
 
       const routeX = ml + 14;
       y -= 4;
@@ -228,7 +226,7 @@ app.post("/api/quote/send", async (req, res) => {
 
       // --- Total ---
       y -= 2;
-      page.drawRectangle({ x: ml, y: y - 4, width: cw, height: 22, color: bgTotal, borderColor: light, borderWidth: 0.5 });
+      page.drawRectangle({ x: ml, y: y - 4, width: cw, height: 22, color: bgTotal });
       page.drawText("TOTAL TTC", { x: ml + 10, y: y + 5, size: 12, font: hb, color: primary });
       page.drawText(`${fmt(Math.round(total))} \u20AC`, { x: pw - mr - 10, y: y + 5, size: 14, font: hb, color: primary, textAlign: "right" });
 
