@@ -1,0 +1,7 @@
+# Sécurité : si la racine du projet est exposée par erreur, tout est bloqué sauf /public
+Options -Indexes
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule ^$ public/ [L]
+  RewriteRule ^(?!public/) - [F,L]
+</IfModule>

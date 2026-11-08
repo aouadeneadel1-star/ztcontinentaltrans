@@ -1,0 +1,10 @@
+config/*.local.php
+vendor/
+storage/truck_photos/*
+storage/incident_photos/*
+storage/documents/*
+storage/dispatches/*
+storage/backups/*
+storage/logs/*
+!storage/*/.gitkeep
+!storage/.htaccess
