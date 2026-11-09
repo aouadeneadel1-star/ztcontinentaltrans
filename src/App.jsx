@@ -14,16 +14,34 @@ import Helpers from './pages/Helpers';
 import Dispatches, { DispatchForm, DispatchShow } from './pages/Dispatches';
 import DriverHome, { CheckForm, IncidentForm } from './pages/Driver';
 import Signup from './pages/Signup';
+import ResetPassword from './pages/ResetPassword';
 
 function Login() {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
   const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
+  const [forgot, setForgot] = useState(false); const [sent, setSent] = useState(false);
+  async function sendReset(e) {
+    e.preventDefault(); setBusy(true); setErr('');
+    await supabase.functions.invoke('reset-password', { body: { email: email.trim() } });
+    setSent(true); setBusy(false);
+  }
   async function submit(e) {
     e.preventDefault(); setBusy(true); setErr('');
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) setErr('E-mail ou mot de passe incorrect.');
     setBusy(false);
   }
+  if (forgot) return (
+    <div className="login"><form className="card" onSubmit={sendReset}>
+      <img src="/logo.png" alt="ZT Continental Trans" />
+      <h1>Mot de passe oublié</h1>
+      {sent ? <Msg type="ok">Si cette adresse correspond à un compte, un e-mail avec un lien de réinitialisation vient d'être envoyé (pensez à vérifier les courriers indésirables).</Msg>
+        : <><p className="muted">Saisissez votre e-mail : vous recevrez un lien pour choisir un nouveau mot de passe.</p>
+          <Field label="E-mail"><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
+          <button className="btn block" disabled={busy}>{busy ? 'Envoi…' : 'Envoyer le lien'}</button></>}
+      <p style={{ textAlign: 'center' }}><button type="button" className="btn light sm" onClick={() => { setForgot(false); setSent(false); }}>Retour à la connexion</button></p>
+    </form></div>
+  );
   return (
     <div className="login"><form className="card" onSubmit={submit}>
       <img src="/logo.png" alt="ZT Continental Trans" />
@@ -32,6 +50,7 @@ function Login() {
       <Field label="E-mail"><input type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
       <Field label="Mot de passe"><input type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
       <button className="btn block" disabled={busy}>{busy ? 'Connexion…' : 'Se connecter'}</button>
+      <p style={{ textAlign: 'center' }}><button type="button" className="btn light sm" onClick={() => setForgot(true)}>Mot de passe oublié ?</button></p>
     </form></div>
   );
 }
@@ -98,6 +117,7 @@ export default function App() {
   const { session, profile, loading, isStaff, isDriver, signOut } = useAuth();
   const { pathname } = useLocation();
   if (pathname === '/inscription') return <Signup />;
+  if (pathname === '/reinitialiser') return <ResetPassword />;
   if (loading) return <div className="login muted">Chargement…</div>;
   if (!session) return <Login />;
   if (!profile) return <div className="login muted">Chargement…</div>;
