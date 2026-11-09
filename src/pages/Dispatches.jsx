@@ -3,9 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { supabase, sheetUrl } from '../lib/supabase';
 import { useAuth } from '../auth';
 import { Badge, Plate, PageHead, Field, Msg, Table, useAsync, q } from '../components/ui';
-import { L, fdate, fdateLong, fullName, uploadFile, today, normalizePhone, prettyPhone, waLink } from '../lib/utils';
+import { L, fdate, fdateLong, fullName, uploadFile } from '../lib/utils';
+const validEmail = (e) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((e ?? '').trim());
 
-const SELECT = '*, trucks(plate,brand,model), driver:profiles!dispatches_driver_id_fkey(first_name,last_name,phone), h1:helpers!dispatches_helper1_id_fkey(first_name,last_name,whatsapp), h2:helpers!dispatches_helper2_id_fkey(first_name,last_name,whatsapp), dispatch_tours(*)';
+const SELECT = '*, trucks(plate,brand,model), driver:profiles!dispatches_driver_id_fkey(first_name,last_name,email), h1:helpers!dispatches_helper1_id_fkey(first_name,last_name,email), h2:helpers!dispatches_helper2_id_fkey(first_name,last_name,email), dispatch_tours(*)';
 const team = (d) => [d.h1, d.h2].filter(Boolean).map(fullName);
 
 export default function Dispatches() {
@@ -41,8 +42,8 @@ export function DispatchForm() {
   const [tours, setTours] = useState([blank()]); const [err, setErr] = useState(''); const [busy, setBusy] = useState(false);
   const ref = useAsync(async () => {
     const [drivers, helpers, trucks, assigns, d] = await Promise.all([
-      q(supabase.from('profiles').select('id,first_name,last_name,phone').eq('role', 'driver').eq('is_active', true).order('last_name')),
-      q(supabase.from('helpers').select('id,first_name,last_name').eq('is_active', true).order('last_name')),
+      q(supabase.from('profiles').select('id,first_name,last_name,email').eq('role', 'driver').eq('is_active', true).order('last_name')),
+      q(supabase.from('helpers').select('id,first_name,last_name,email').eq('is_active', true).order('last_name')),
       q(supabase.from('trucks').select('id,plate,brand,model').order('plate')),
       q(supabase.from('truck_assignments').select('truck_id,driver_id').is('end_date', null)),
       id ? q(supabase.from('dispatches').select('*, dispatch_tours(*)').eq('id', id).single()) : null,
@@ -69,9 +70,11 @@ export function DispatchForm() {
     const drv = drivers.find((d) => d.id === f.driver_id);
     if (!f.work_date) return setErr('La date est obligatoire.');
     if (!drv) return setErr('Choisissez un conducteur.');
-    if (!normalizePhone(drv.phone)) return setErr("Le conducteur n'a pas de numéro de téléphone valide : renseignez-le dans Utilisateurs.");
+    if (!validEmail(drv.email)) return setErr("Le conducteur n'a pas d'adresse e-mail enregistrée.");
     if (!f.truck_id) return setErr('Choisissez un camion.');
     if (f.helper1_id && f.helper1_id === f.helper2_id) return setErr('Les deux rippeurs doivent être différents.');
+    const noMail = [f.helper1_id, f.helper2_id].filter(Boolean).map((hid) => helpers.find((h) => String(h.id) === String(hid))).find((h) => h && !validEmail(h.email));
+    if (noMail) return setErr(`${noMail.first_name} ${noMail.last_name} n'a pas d'adresse e-mail : complétez sa fiche dans Rippeurs.`);
     const list = tours.filter((t) => t.client.trim() || t.city.trim());
     if (!list.length) return setErr('Ajoutez au moins une tournée ou une course.');
     if (list.some((t) => !t.client.trim() || !t.city.trim())) return setErr('Chaque tournée ou course doit avoir un client et une ville.');
@@ -135,19 +138,17 @@ export function DispatchForm() {
   );
 }
 
-// Aperçu du message (même texte que celui construit par la fonction d'envoi)
+// Aperçu de l'e-mail (même texte que celui construit par la fonction d'envoi)
 function preview(d, tours) {
   const date = fdateLong(d.work_date);
   const truck = `${d.trucks.plate} (${`${d.trucks.brand} ${d.trucks.model}`.trim()})`;
-  const lines = tours.map((t, i) => `• ${L.tour_kind[t.kind]} ${i + 1} : ${t.client} – ${t.city}`);
-  const links = tours.map((t, i) => (t.file_path ? `• ${i + 1} (${t.client}) : ${sheetUrl(t.token)}` : null)).filter(Boolean);
+  const missions = tours.map((t, i) => `• ${L.tour_kind[t.kind]} ${i + 1} : ${t.client} – ${t.city}${t.file_path ? '\n  [Bouton « Télécharger la feuille »]' : ''}`);
   const drvName = fullName(d.driver); const hs = [d.h1, d.h2].filter(Boolean);
-  const people = [{ type: 'driver', name: drvName, first: d.driver.first_name, phone: normalizePhone(d.driver.phone) }, ...hs.map((h) => ({ type: 'helper', name: fullName(h), first: h.first_name, phone: normalizePhone(h.whatsapp) }))];
+  const people = [{ type: 'driver', name: drvName, first: d.driver.first_name, email: d.driver.email }, ...hs.map((h) => ({ type: 'helper', name: fullName(h), first: h.first_name, email: h.email }))];
   return people.map((p) => {
     const others = hs.map(fullName).filter((n) => n !== p.name);
     const tm = p.type === 'driver' ? (hs.length ? `rippeur${hs.length > 1 ? 's' : ''} ${hs.map(fullName).join(' et ')}` : 'aucun rippeur') : `conducteur ${drvName}${others.length ? `, avec ${others.join(' et ')}` : ''}`;
-    let body = `Bonjour ${p.first},\nVotre planning du ${date} :\n\nCamion : ${truck}\nÉquipe : ${tm}\n\nMissions :\n${lines.join('\n')}`;
-    if (links.length) body += `\n\nTélécharger la feuille :\n${links.join('\n')}`;
+    let body = `Bonjour ${p.first},\nVotre planning du ${date} :\n\nCamion : ${truck}\nÉquipe : ${tm}\n\nMissions :\n${missions.join('\n')}`;
     if (d.note) body += `\n\nRemarque : ${d.note.replace(/\s+/g, ' ')}`;
     return { ...p, body: body + '\n\nZT Continental Trans' };
   });
@@ -175,13 +176,8 @@ export function DispatchShow() {
     if (error) { try { msg = (await error.context.json()).error ?? msg; } catch { /* ignore */ } }
     setBusy(false);
     if (msg || r?.error) setErr(msg ?? r.error);
-    else setOk(r.auto ? (r.status === 'sent' ? 'Messages WhatsApp envoyés.' : "Certains messages n'ont pas pu être envoyés. Voir le détail ci-dessous.") : "Envoi automatique non configuré : utilisez les boutons WhatsApp ci-dessous pour envoyer chaque message.");
+    else setOk(r.auto ? (r.status === 'sent' ? 'E-mails envoyés.' : "Certains e-mails n'ont pas pu être envoyés. Voir le détail ci-dessous.") : "Envoi par e-mail non configuré (mot de passe SMTP manquant).");
     reload();
-  }
-  async function mark(m) {
-    await supabase.from('dispatch_messages').update({ status: 'sent', sent_at: new Date().toISOString(), error_message: null }).eq('id', m.id);
-    const sent = msgs.filter((x) => x.id === m.id || x.status === 'sent').length;
-    await supabase.from('dispatches').update({ status: sent === msgs.length ? 'sent' : 'partial' }).eq('id', d.id); reload();
   }
   async function del() {
     if (!window.confirm('Supprimer ce planning et ses fichiers ?')) return;
@@ -204,16 +200,16 @@ export function DispatchShow() {
 
       {draft ? (
         <section className="card"><h2>Aperçu des messages</h2>
-          {preview(d, tours).map((m) => <div className="wa" key={m.name}><b>{m.name}</b> · {m.phone ? prettyPhone(m.phone) : <span className="badge red">Numéro invalide</span>}<pre>{m.body}</pre></div>)}
-          <div className="actions"><button className="btn" disabled={busy} onClick={send}>{busy ? 'Envoi…' : 'Valider et envoyer par WhatsApp'}</button><Link className="btn light" to={`/tournees/${d.id}/modifier`}>Modifier</Link></div>
-          <p className="hint">Sans configuration WhatsApp, un bouton « Ouvrir WhatsApp » sera proposé pour chaque personne après validation.</p></section>
+          {preview(d, tours).map((m) => <div className="wa" key={m.name}><b>{m.name}</b> · {validEmail(m.email) ? m.email : <span className="badge red">E-mail manquant</span>}<pre>{m.body}</pre></div>)}
+          <div className="actions"><button className="btn" disabled={busy} onClick={send}>{busy ? 'Envoi…' : 'Valider et envoyer par e-mail'}</button><Link className="btn light" to={`/tournees/${d.id}/modifier`}>Modifier</Link></div>
+          <p className="hint">Chaque personne reçoit un e-mail avec son équipe, le camion, les missions et un bouton pour télécharger la feuille.</p></section>
       ) : (
         <section className="card"><h2>Envois</h2>
           <ul className="rows">{msgs.map((m) => (
-            <li key={m.id}><span className="l"><b>{m.recipient_name}</b> <span className="muted small">{prettyPhone(m.phone)}</span>{m.error_message && <><br /><span className="small" style={{ color: 'var(--red)' }}>{m.error_message}</span></>}</span>
+            <li key={m.id}><span className="l"><b>{m.recipient_name}</b> <span className="muted small">{m.email}</span>{m.error_message && <><br /><span className="small" style={{ color: 'var(--red)' }}>{m.error_message}</span></>}</span>
               <span className="actions"><span className={`badge ${{ sent: 'green', failed: 'red', pending: 'orange' }[m.status]}`}>{{ sent: 'Envoyé', failed: 'Échec', pending: 'À envoyer' }[m.status]}</span>
-                {m.status !== 'sent' && <><a className="btn sm" target="_blank" rel="noreferrer" href={waLink(m.phone, m.body)}>Ouvrir WhatsApp</a><button className="btn light sm" onClick={() => mark(m)}>C'est envoyé</button></>}</span></li>))}</ul>
-          {d.status !== 'sent' && <div className="actions" style={{ marginTop: 12 }}><button className="btn" disabled={busy} onClick={send}>Renvoyer automatiquement les messages non envoyés</button></div>}
+              </span></li>))}</ul>
+          {d.status !== 'sent' && <div className="actions" style={{ marginTop: 12 }}><button className="btn" disabled={busy} onClick={send}>Renvoyer les e-mails non envoyés</button></div>}
         </section>
       )}
       <button className="btn danger" onClick={del}>Supprimer ce planning</button>

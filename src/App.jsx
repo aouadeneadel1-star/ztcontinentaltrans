@@ -13,6 +13,7 @@ import Users from './pages/Users';
 import Helpers from './pages/Helpers';
 import Dispatches, { DispatchForm, DispatchShow } from './pages/Dispatches';
 import DriverHome, { CheckForm, IncidentForm } from './pages/Driver';
+import Signup from './pages/Signup';
 
 function Login() {
   const [email, setEmail] = useState(''); const [password, setPassword] = useState('');
@@ -95,6 +96,8 @@ function Shell({ children }) {
 
 export default function App() {
   const { session, profile, loading, isStaff, isDriver, signOut } = useAuth();
+  const { pathname } = useLocation();
+  if (pathname === '/inscription') return <Signup />;
   if (loading) return <div className="login muted">Chargement…</div>;
   if (!session) return <Login />;
   if (!profile) return <div className="login muted">Chargement…</div>;
