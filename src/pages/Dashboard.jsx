@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Badge, Plate, PageHead, Msg, useAsync, q } from '../components/ui';
+import { Icon } from '../App';
 import { L, today, addDays, daysUntil, fdate, fullName } from '../lib/utils';
 
 export default function Dashboard() {
@@ -33,11 +34,17 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHead title="Tableau de bord"><Link className="btn" to="/tournees/nouveau">Nouveau planning</Link></PageHead>
+      <PageHead title="Tableau de bord"><Link className="btn accent" to="/tournees/nouveau">＋ Nouveau planning</Link></PageHead>
+      <div className="quick">
+        <Link to="/tournees"><Icon name="route" size={22} />Tournées</Link>
+        <Link to="/camions"><Icon name="truck" size={22} />Camions</Link>
+        <Link to="/controles"><Icon name="camera" size={22} />Contrôles</Link>
+        <Link to="/signalements"><Icon name="alert" size={22} />Problèmes</Link>
+      </div>
       <div className="figures">
         <Link className="figure" to="/camions"><b>{trucks.length}</b><span>Camions</span></Link>
-        <Link className="figure" to="/camions"><b>{count('in_service')}</b><span>En circulation</span></Link>
-        <Link className="figure" to="/camions"><b>{count('maintenance') + count('immobilized')}</b><span>Maintenance / immobilisés</span></Link>
+        <Link className="figure green" to="/camions"><b>{count('in_service')}</b><span>En circulation</span></Link>
+        <Link className="figure gold" to="/camions"><b>{count('maintenance') + count('immobilized')}</b><span>Maintenance / immobilisés</span></Link>
         <Link className={`figure ${incidents.length ? 'alert' : ''}`} to="/signalements"><b>{incidents.length}</b><span>Signalements ouverts</span></Link>
         <Link className="figure" to="/tournees"><b>{dispatches.length}</b><span>Plannings aujourd'hui</span></Link>
       </div>

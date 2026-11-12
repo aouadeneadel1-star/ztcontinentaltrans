@@ -82,19 +82,22 @@ function ChangePassword() {
 }
 
 const STAFF_NAV = [
-  ['Pilotage', [['/', 'Tableau de bord', true], ['/tournees', 'Tournées'], ['/rippeurs', 'Rippeurs']]],
-  ['Flotte', [['/camions', 'Camions'], ['/controles', 'Photos et contrôles'], ['/signalements', 'Signalements'], ['/historique', 'Historique et exports']]],
+  ['Pilotage', [['/', 'Tableau de bord', true, 'home'], ['/tournees', 'Tournées', false, 'route'], ['/rippeurs', 'Rippeurs', false, 'users']]],
+  ['Flotte', [['/camions', 'Camions', false, 'truck'], ['/controles', 'Photos et contrôles', false, 'camera'], ['/signalements', 'Signalements', false, 'alert'], ['/historique', 'Historique et exports', false, 'history']]],
 ];
-const DRIVER_NAV = [['/', 'Accueil', true], ['/signaler', 'Signaler']];
+const DRIVER_NAV = [['/', 'Accueil', true, 'home'], ['/signaler', 'Signaler un problème', false, 'alert']];
 
 // Icônes de la barre du bas (SVG simples, couleur = texte)
 const ICONS = {
   home: <><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" /></>,
   route: <><circle cx="6" cy="19" r="2.5" /><circle cx="18" cy="5" r="2.5" /><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5" /></>,
   truck: <><path d="M2 6h11v10H2z" /><path d="M13 9h4.5l3 3.5V16H13z" /><circle cx="7" cy="17.5" r="2" /><circle cx="17" cy="17.5" r="2" /></>,
+  users: <><circle cx="9" cy="8" r="3.2" /><path d="M3 20c0-3.4 2.7-5.5 6-5.5s6 2.1 6 5.5" /><path d="M16 5a3 3 0 0 1 0 6" /><path d="M18 14.8c1.8.7 3 2.4 3 5.2" /></>,
+  camera: <><path d="M4 8h3l1.5-2.5h7L17 8h3v11H4z" /><circle cx="12" cy="13.5" r="3.3" /></>,
+  history: <><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" /><path d="M3.5 4v4.5H8" /><path d="M12 8v4.5l3 1.8" /></>,
   alert: <><path d="M12 3.5 22 20H2z" /><path d="M12 10v4.5" /><path d="M12 17.3v.2" /></>,
 };
-const Icon = ({ name }) => <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>;
+export const Icon = ({ name, size = 24 }) => <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>;
 
 function Shell({ children }) {
   const { profile, isStaff, isAdmin, signOut } = useAuth();
@@ -111,7 +114,7 @@ function Shell({ children }) {
         <div className="brand"><img src="/logo.png" alt="" /><b>ZT Continental<br />Trans</b></div>
         {groups.map(([title, items]) => (
           <div key={title}>{title && <h3>{title}</h3>}
-            {items.map(([to, label, end]) => <NavLink key={to} to={to} end={!!end} className={({ isActive }) => `nav ${isActive ? 'active' : ''}`}>{label}</NavLink>)}</div>
+            {items.map(([to, label, end, icon]) => <NavLink key={to} to={to} end={!!end} className={({ isActive }) => `nav ${isActive ? 'active' : ''}`}><Icon name={icon} size={20} /><span>{label}</span></NavLink>)}</div>
         ))}
         <div className="me"><b>{profile.first_name} {profile.last_name}</b><br /><span className="muted">{{ admin: 'Administrateur', manager: 'Responsable', driver: 'Conducteur' }[profile.role]}</span><br />
           <button className="btn light sm" style={{ marginTop: 8 }} onClick={signOut}>Se déconnecter</button></div>
