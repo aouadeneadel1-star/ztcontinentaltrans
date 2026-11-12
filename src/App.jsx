@@ -87,14 +87,23 @@ const STAFF_NAV = [
 ];
 const DRIVER_NAV = [['/', 'Accueil', true], ['/signaler', 'Signaler']];
 
+// Icônes de la barre du bas (SVG simples, couleur = texte)
+const ICONS = {
+  home: <><path d="M3 11.5 12 4l9 7.5" /><path d="M5.5 10v9.5h13V10" /><path d="M10 19.5v-5h4v5" /></>,
+  route: <><circle cx="6" cy="19" r="2.5" /><circle cx="18" cy="5" r="2.5" /><path d="M8.5 19H16a3.5 3.5 0 0 0 0-7H8a3.5 3.5 0 0 1 0-7h7.5" /></>,
+  truck: <><path d="M2 6h11v10H2z" /><path d="M13 9h4.5l3 3.5V16H13z" /><circle cx="7" cy="17.5" r="2" /><circle cx="17" cy="17.5" r="2" /></>,
+  alert: <><path d="M12 3.5 22 20H2z" /><path d="M12 10v4.5" /><path d="M12 17.3v.2" /></>,
+};
+const Icon = ({ name }) => <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICONS[name]}</svg>;
+
 function Shell({ children }) {
   const { profile, isStaff, isAdmin, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const loc = useLocation();
   const groups = isStaff ? [...STAFF_NAV, ...(isAdmin ? [['Administration', [['/utilisateurs', 'Utilisateurs']]]] : [])] : [['', DRIVER_NAV]];
   const bottom = isStaff
-    ? [['/', 'Accueil', true], ['/tournees', 'Tournées'], ['/camions', 'Camions'], ['/signalements', 'Problèmes']]
-    : DRIVER_NAV;
+    ? [['/', 'Accueil', true, 'home'], ['/tournees', 'Tournées', false, 'route'], ['/camions', 'Camions', false, 'truck'], ['/signalements', 'Problèmes', false, 'alert']]
+    : [['/', 'Accueil', true, 'home'], ['/signaler', 'Signaler', false, 'alert']];
   return (
     <div className="app">
       <div className="topbar"><button aria-label="Menu" onClick={() => setOpen(!open)}>☰</button><b style={{ color: 'var(--navy)' }}>ZT Continental</b><span style={{ width: 30 }} /></div>
@@ -108,7 +117,7 @@ function Shell({ children }) {
           <button className="btn light sm" style={{ marginTop: 8 }} onClick={signOut}>Se déconnecter</button></div>
       </aside>
       <main className="main" key={loc.pathname}>{children}</main>
-      <nav className="bottom">{bottom.map(([to, label, end]) => <NavLink key={to} to={to} end={!!end} className={({ isActive }) => (isActive ? 'active' : '')}>{label}</NavLink>)}</nav>
+      <nav className="bottom">{bottom.map(([to, label, end, icon]) => <NavLink key={to} to={to} end={!!end} className={({ isActive }) => (isActive ? 'active' : '')}><Icon name={icon} /><span>{label}</span></NavLink>)}</nav>
     </div>
   );
 }
